@@ -2,15 +2,17 @@
 
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
-contains the Phase 1 foundation and Phase 2A connection-string interpretation.
+contains the Phase 1 foundation and Phase 2A/2B database contracts.
 
 ## Current scope
 
 Phase 1 establishes packaging, module boundaries, engineering standards, configuration, and tests.
 Phase 2A adds typed relational engine and driver detection from connection-string URI schemes. It
 does not establish database connections, and raw credentials remain protected by `SecretStr`.
-Actual database adapters, MCP database tools, agent or LiteLLM integration, dataset
-planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
+Phase 2B adds typed engine-neutral metadata/result models, an asynchronous adapter contract, and a
+dependency-injected adapter factory with no global registry. Concrete database adapters and
+connectivity remain unimplemented, as do MCP database tools, agent or LiteLLM integration, dataset
+planning/generation/validation/publishing logic, CI, and containers.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
 transport and infrastructure concerns. Future MCP handlers will translate requests and responses
@@ -24,7 +26,7 @@ See [ADR 0001](docs/adr/0001-system-architecture.md) for the decisions and curre
 ```text
 src/automatic_dataset_generation/
 ├── core/           # Runtime configuration and cross-cutting foundations
-├── database/       # Connection parsing and future read-only database adapters
+├── database/       # Connection parsing, metadata contracts, and adapter selection
 ├── mcp/            # Future MCP transport boundary
 ├── security/       # Future deterministic sanitization and policy enforcement
 ├── planning/       # Future dataset planning
@@ -98,7 +100,7 @@ synthetic, non-sensitive test data.
 
 - Phase 0 - architecture validation (completed externally)
 - Phase 1 - foundation
-- Phase 2 - database integration (2A engine detection complete; adapters and MCP pending)
+- Phase 2 - database integration (2A parsing and 2B contracts complete; adapters and MCP pending)
 - Phase 3 - security and sanitization
 - Phase 4 - agent orchestration
 - Phase 5 - dataset planner
@@ -109,6 +111,7 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 2A only. Connection parsing performs no network access, credential validation, or driver
-imports. The unresolved registry endpoint and generation semantics documented in ADR 0001 must be
-settled before their corresponding implementation phases.
+Phase 2B only. Connection parsing, adapter contracts, and adapter selection perform no network
+access, credential validation, or driver imports. No concrete database adapter exists yet. The
+unresolved registry endpoint and generation semantics documented in ADR 0001 must be settled before
+their corresponding implementation phases.

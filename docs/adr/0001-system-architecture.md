@@ -37,6 +37,9 @@ capabilities.
    should point toward stable contracts and domain behavior, not infrastructure details.
 9. Runtime configuration comes from environment variables. Secret values use secret-aware types and
    are excluded from safe diagnostic views. No global mutable configuration singleton is provided.
+10. Concrete database adapters will implement one asynchronous, engine-neutral contract. Adapter
+    selection uses constructor-injected builders copied into each factory instance; there is no
+    global mutable adapter registry or automatic plugin discovery.
 
 ## Consequences
 
