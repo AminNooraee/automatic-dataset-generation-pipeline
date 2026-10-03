@@ -1,0 +1,127 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "automatic-dataset-generation-pipeline"
+version = "0.1.0"
+description = "Secure internal pipeline for generating ML and LLM datasets from enterprise databases."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+authors = [{ name = "Internal ML Platform Team" }]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Private :: Do Not Upload",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+dependencies = [
+  "pydantic>=2.10,<3",
+  "pydantic-settings>=2.7,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "detect-secrets>=1.5,<2",
+  "mypy>=1.20,<2",
+  "pre-commit>=4.0,<5",
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<2",
+  "pytest-cov>=6.0,<8",
+  "ruff>=0.16,<0.17",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/automatic_dataset_generation"]
+
+[tool.pytest.ini_options]
+addopts = [
+  "--strict-config",
+  "--strict-markers",
+  "--cov=automatic_dataset_generation",
+  "--cov-report=term-missing:skip-covered",
+  "--cov-fail-under=90",
+]
+asyncio_mode = "strict"
+testpaths = ["tests"]
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["automatic_dataset_generation"]
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "ANN",
+  "ARG",
+  "ASYNC",
+  "B",
+  "BLE",
+  "C4",
+  "DTZ",
+  "E",
+  "F",
+  "FA",
+  "FBT",
+  "FURB",
+  "I",
+  "N",
+  "PERF",
+  "PIE",
+  "PL",
+  "PT",
+  "PTH",
+  "RET",
+  "RSE",
+  "RUF",
+  "S",
+  "SIM",
+  "T10",
+  "T20",
+  "TC",
+  "TRY",
+  "UP",
+  "W",
+]
+ignore = [
+  "ANN401", # Any remains valid at deliberately generic boundaries.
+  "TRY003", # Exception messages belong close to these small validation sites.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["automatic_dataset_generation"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+warn_unused_configs = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_decorators = false
