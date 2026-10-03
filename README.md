@@ -2,13 +2,15 @@
 
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
-contains only the Phase 1 foundation.
+contains the Phase 1 foundation and Phase 2A connection-string interpretation.
 
 ## Current scope
 
 Phase 1 establishes packaging, module boundaries, engineering standards, configuration, and tests.
-It intentionally does **not** contain database implementations, MCP database tools, agent or
-LiteLLM integration, dataset planning/generation/validation/publishing logic, CI, or containers.
+Phase 2A adds typed relational engine and driver detection from connection-string URI schemes. It
+does not establish database connections, and raw credentials remain protected by `SecretStr`.
+Actual database adapters, MCP database tools, agent or LiteLLM integration, dataset
+planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
 transport and infrastructure concerns. Future MCP handlers will translate requests and responses
@@ -22,7 +24,7 @@ See [ADR 0001](docs/adr/0001-system-architecture.md) for the decisions and curre
 ```text
 src/automatic_dataset_generation/
 ├── core/           # Runtime configuration and cross-cutting foundations
-├── database/       # Future read-only database ports and adapters
+├── database/       # Connection parsing and future read-only database adapters
 ├── mcp/            # Future MCP transport boundary
 ├── security/       # Future deterministic sanitization and policy enforcement
 ├── planning/       # Future dataset planning
@@ -96,7 +98,7 @@ synthetic, non-sensitive test data.
 
 - Phase 0 - architecture validation (completed externally)
 - Phase 1 - foundation
-- Phase 2 - database adapters + database MCP
+- Phase 2 - database integration (2A engine detection complete; adapters and MCP pending)
 - Phase 3 - security and sanitization
 - Phase 4 - agent orchestration
 - Phase 5 - dataset planner
@@ -107,5 +109,6 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 1 only. The unresolved registry endpoint and generation semantics documented in ADR 0001 must
-be settled before their corresponding implementation phases.
+Phase 2A only. Connection parsing performs no network access, credential validation, or driver
+imports. The unresolved registry endpoint and generation semantics documented in ADR 0001 must be
+settled before their corresponding implementation phases.
