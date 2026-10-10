@@ -115,3 +115,11 @@ Phase 2B only. Connection parsing, adapter contracts, and adapter selection perf
 access, credential validation, or driver imports. No concrete database adapter exists yet. The
 unresolved registry endpoint and generation semantics documented in ADR 0001 must be settled before
 their corresponding implementation phases.
+
+## PostgreSQL adapter
+
+Phase 2C provides `PostgreSQLAdapter` using psycopg 3. It creates one asynchronous connection per
+allowlisted operation and configures each session as read-only with a bound statement timeout before
+any catalog or application query. This is defense in depth: production roles must still be granted
+least-privilege, read-only database permissions. Identifiers are composed with psycopg identifiers;
+sampling is bounded by a configured hard maximum and never offers arbitrary SQL execution.

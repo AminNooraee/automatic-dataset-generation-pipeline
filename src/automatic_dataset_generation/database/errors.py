@@ -18,3 +18,11 @@ class DatabaseAdapterError(RuntimeError):
 
 class DatabaseAdapterNotRegisteredError(DatabaseAdapterError):
     """Raised when no adapter builder is registered for a normalized engine."""
+
+
+class DatabaseOperationError(DatabaseAdapterError):
+    """Raised when a concrete adapter cannot safely complete an operation."""
+
+
+class DatabaseObjectNotFoundError(DatabaseAdapterError):
+    """Raised when a requested object is missing or not visible to the configured role."""

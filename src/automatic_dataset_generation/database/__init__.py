@@ -10,6 +10,8 @@ from automatic_dataset_generation.database.errors import (
     DatabaseAdapterError,
     DatabaseAdapterNotRegisteredError,
     DatabaseConnectionError,
+    DatabaseObjectNotFoundError,
+    DatabaseOperationError,
     UnsupportedDatabaseEngineError,
 )
 from automatic_dataset_generation.database.factory import DatabaseAdapterFactory
@@ -21,6 +23,7 @@ from automatic_dataset_generation.database.models import (
     TableDescription,
     TableInfo,
 )
+from automatic_dataset_generation.database.postgresql import PostgreSQLAdapter
 
 __all__ = [
     "ColumnInfo",
@@ -31,7 +34,10 @@ __all__ = [
     "DatabaseConnectionError",
     "DatabaseConnectionSpec",
     "DatabaseEngine",
+    "DatabaseObjectNotFoundError",
+    "DatabaseOperationError",
     "DatabaseServerInfo",
+    "PostgreSQLAdapter",
     "RelationshipInfo",
     "SampleResult",
     "TableDescription",
