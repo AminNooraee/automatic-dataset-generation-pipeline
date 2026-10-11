@@ -12,10 +12,27 @@ wheels = [
 ]
 
 [[package]]
+name = "asyncmy"
+version = "0.2.16"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/a2/cf891f7c05b6292e0966c3870332d7778c14de912b33db4a895ac5151b9e/asyncmy-0.2.16.tar.gz", hash = "sha256:92a9c5d1ddb143783360b92f8abdc72612d7a2b2efb2a07482d2a816c9223be8", size = 94368, upload-time = "2026-10-06T10:52:58.263Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/b1/6cc46efe1d4693724ff5e76b50a60a78571efa1439133d0bb78ded8217aa/asyncmy-0.2.16-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:0faad88c3c8fdffe3de6d626f58d2af47fa47531cb6d2100859b8fddd9685847", size = 2233315, upload-time = "2026-10-06T10:51:47.197Z" },
+    { url = "https://files.pythonhosted.org/packages/21/72/a8b2e8feafcf3dadd48bd364ddc40d5d2125ffa1d3fd61a0fb715fcb553d/asyncmy-0.2.16-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:20f148342baccae2a7995e745414f999bf116062975b7635bed9557895423681", size = 2212570, upload-time = "2026-10-06T10:51:48.588Z" },
+    { url = "https://files.pythonhosted.org/packages/58/73/4fe290478d4898b5c34a46374e9c0604574f503d7d388d853710a4c07305/asyncmy-0.2.16-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f32ef4f8746a2b9073d63950be8a87466426da9bcbc8339943c62b4de34e70a1", size = 6787634, upload-time = "2026-10-06T10:51:49.961Z" },
+    { url = "https://files.pythonhosted.org/packages/76/25/ee3052e0b12737e1ea2293ac4b888f69c5a27c3c225a5054ba5e691091fa/asyncmy-0.2.16-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:dc5b0fba7feec70bfc0a4c571f2e0071e040d052f46447c491f28649a1b70c15", size = 6848958, upload-time = "2026-10-06T10:51:51.522Z" },
+    { url = "https://files.pythonhosted.org/packages/76/d4/e1fb370a4dd2f9a295e1189f68afd975c6ad385056e9696e653ca76ffe6a/asyncmy-0.2.16-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:6429983256fc41de0bae3782e2f89ed330b84baa2dfd398a87d9913b27c74620", size = 6505431, upload-time = "2026-10-06T10:51:53.286Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/b8/c1d82f08f482272d06c2572645c0af13a2af2f2309b600ffe98dd2ab8cd8/asyncmy-0.2.16-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:3e0acb7aa6cea90f454df9be4fd5e402bea2d30d1d3dab8f70d48031e8627095", size = 6624495, upload-time = "2026-10-06T10:51:54.867Z" },
+    { url = "https://files.pythonhosted.org/packages/48/1a/9e0876385c282c308793619a6a05646918904d42270e6229a468f5c77fb8/asyncmy-0.2.16-cp312-cp312-win32.whl", hash = "sha256:c2798f09a62c4dad559951c40f8e89a87ad41758ad19376efe80e9dc0f1ac2d1", size = 1991358, upload-time = "2026-10-06T10:51:56.107Z" },
+    { url = "https://files.pythonhosted.org/packages/91/cb/b5d617b87709c17f9de409eb55cbdce4c3c2849d8babe1c54bcc4d413557/asyncmy-0.2.16-cp312-cp312-win_amd64.whl", hash = "sha256:6dd4997a060a2bebe90ac8420e3b6a490b75f5c0a62cafbe7d19acd3f4c2fc9f", size = 2093206, upload-time = "2026-10-06T10:51:57.241Z" },
+]
+
+[[package]]
 name = "automatic-dataset-generation-pipeline"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "asyncmy" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -34,6 +51,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "asyncmy", specifier = ">=0.2.15,<0.3" },
     { name = "detect-secrets", marker = "extra == 'dev'", specifier = ">=1.5,<2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.20,<2" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0,<5" },

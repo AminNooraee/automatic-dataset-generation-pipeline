@@ -2,7 +2,7 @@
 
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
-contains the Phase 1 foundation and Phase 2A/2B database contracts.
+contains the Phase 1 foundation, Phase 2A/2B contracts, and Phase 2C/2D adapters.
 
 ## Current scope
 
@@ -10,9 +10,9 @@ Phase 1 establishes packaging, module boundaries, engineering standards, configu
 Phase 2A adds typed relational engine and driver detection from connection-string URI schemes. It
 does not establish database connections, and raw credentials remain protected by `SecretStr`.
 Phase 2B adds typed engine-neutral metadata/result models, an asynchronous adapter contract, and a
-dependency-injected adapter factory with no global registry. Concrete database adapters and
-connectivity remain unimplemented, as do MCP database tools, agent or LiteLLM integration, dataset
-planning/generation/validation/publishing logic, CI, and containers.
+dependency-injected adapter factory with no global registry. PostgreSQL and MySQL adapters now
+implement that contract. MCP database tools, agent or LiteLLM integration, dataset
+planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
 transport and infrastructure concerns. Future MCP handlers will translate requests and responses
@@ -111,10 +111,10 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 2B only. Connection parsing, adapter contracts, and adapter selection perform no network
-access, credential validation, or driver imports. No concrete database adapter exists yet. The
-unresolved registry endpoint and generation semantics documented in ADR 0001 must be settled before
-their corresponding implementation phases.
+Phase 2D. Connection parsing, adapter contracts, and adapter selection perform no network access.
+PostgreSQL and MySQL adapters connect only when an allowlisted operation runs. The unresolved
+registry endpoint and generation semantics documented in ADR 0001 must be settled before their
+corresponding implementation phases.
 
 ## PostgreSQL adapter
 
@@ -123,3 +123,11 @@ allowlisted operation and configures each session as read-only with a bound stat
 any catalog or application query. This is defense in depth: production roles must still be granted
 least-privilege, read-only database permissions. Identifiers are composed with psycopg identifiers;
 sampling is bounded by a configured hard maximum and never offers arbitrary SQL execution.
+
+## MySQL adapter
+
+Phase 2D provides `MySQLAdapter` using asyncmy. It opens one async connection per operation,
+configures read-only transaction defaults and a bounded MySQL SELECT timeout, and exposes only
+the typed adapter methods. Use a least-privilege, read-only MySQL account; session settings are
+defense in depth. Sampling has a hard row limit. MariaDB remains a separate Phase 2E adapter.
+See [ADR 0003](docs/adr/0003-mysql-adapter.md).

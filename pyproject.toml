@@ -19,6 +19,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "asyncmy>=0.2.15,<0.3",
   "pydantic>=2.10,<3",
   "pydantic-settings>=2.7,<3",
   "psycopg[binary]>=3.2,<4",
