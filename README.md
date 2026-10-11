@@ -100,7 +100,12 @@ synthetic, non-sensitive test data.
 
 - Phase 0 - architecture validation (completed externally)
 - Phase 1 - foundation
-- Phase 2 - database integration (2A parsing and 2B contracts complete; adapters and MCP pending)
+- Phase 2A - connection parsing and engine detection (complete)
+- Phase 2B - adapter contract and factory (complete)
+- Phase 2C - PostgreSQLAdapter (complete)
+- Phase 2D - MySQLAdapter (complete)
+- Phase 2E - MariaDB adapter (pending)
+- Phase 2 (remainder) - SQL Server and Oracle adapters, and MCP database tools (pending)
 - Phase 3 - security and sanitization
 - Phase 4 - agent orchestration
 - Phase 5 - dataset planner

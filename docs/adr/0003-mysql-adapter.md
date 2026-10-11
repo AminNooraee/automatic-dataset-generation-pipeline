@@ -6,7 +6,12 @@
 ## Decision
 
 Phase 2D uses asyncmy 0.2.x for native asyncio MySQL access. Each allowlisted operation
-opens and synchronously closes one asyncmy connection; no pool is used. The connection uses
+opens one asyncmy connection and performs graceful shutdown when the operation finishes; no pool is
+used. Before releasing the connection, the adapter awaits `connection.ensure_closed()` to send the
+protocol termination gracefully and then calls `connection.close()` as a cleanup safeguard that
+releases the local transport. This ordering best-effort shuts the connection down; a failure in
+either step is suppressed so it cannot replace the operation's result or a prior safe error, and no
+stronger release guarantee is claimed. The connection uses
 autocommit and first sets `SET SESSION TRANSACTION READ ONLY` so subsequent statements
 inherit a read-only transaction mode. This is defense in depth; the configured database
 account must still have least-privilege, read-only grants. MySQL read-only transactions
