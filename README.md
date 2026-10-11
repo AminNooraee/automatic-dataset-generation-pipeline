@@ -2,7 +2,7 @@
 
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
-contains the Phase 1 foundation, Phase 2A/2B contracts, and Phase 2C/2D adapters.
+contains the Phase 1 foundation, Phase 2A/2B contracts, and Phase 2C/2D/2E adapters.
 
 ## Current scope
 
@@ -10,8 +10,8 @@ Phase 1 establishes packaging, module boundaries, engineering standards, configu
 Phase 2A adds typed relational engine and driver detection from connection-string URI schemes. It
 does not establish database connections, and raw credentials remain protected by `SecretStr`.
 Phase 2B adds typed engine-neutral metadata/result models, an asynchronous adapter contract, and a
-dependency-injected adapter factory with no global registry. PostgreSQL and MySQL adapters now
-implement that contract. MCP database tools, agent or LiteLLM integration, dataset
+dependency-injected adapter factory with no global registry. PostgreSQL, MySQL, and MariaDB
+adapters now implement that contract. MCP database tools, agent or LiteLLM integration, dataset
 planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
@@ -104,7 +104,7 @@ synthetic, non-sensitive test data.
 - Phase 2B - adapter contract and factory (complete)
 - Phase 2C - PostgreSQLAdapter (complete)
 - Phase 2D - MySQLAdapter (complete)
-- Phase 2E - MariaDB adapter (pending)
+- Phase 2E - MariaDBAdapter (complete)
 - Phase 2 (remainder) - SQL Server and Oracle adapters, and MCP database tools (pending)
 - Phase 3 - security and sanitization
 - Phase 4 - agent orchestration
@@ -116,10 +116,10 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 2D. Connection parsing, adapter contracts, and adapter selection perform no network access.
-PostgreSQL and MySQL adapters connect only when an allowlisted operation runs. The unresolved
-registry endpoint and generation semantics documented in ADR 0001 must be settled before their
-corresponding implementation phases.
+Phase 2E. Connection parsing, adapter contracts, and adapter selection perform no network access.
+PostgreSQL, MySQL, and MariaDB adapters connect only when an allowlisted operation runs. The
+unresolved registry endpoint and generation semantics documented in ADR 0001 must be settled before
+their corresponding implementation phases.
 
 ## PostgreSQL adapter
 
@@ -134,5 +134,14 @@ sampling is bounded by a configured hard maximum and never offers arbitrary SQL 
 Phase 2D provides `MySQLAdapter` using asyncmy. It opens one async connection per operation,
 configures read-only transaction defaults and a bounded MySQL SELECT timeout, and exposes only
 the typed adapter methods. Use a least-privilege, read-only MySQL account; session settings are
-defense in depth. Sampling has a hard row limit. MariaDB remains a separate Phase 2E adapter.
+defense in depth. Sampling has a hard row limit. MariaDB is a separate Phase 2E adapter.
 See [ADR 0003](docs/adr/0003-mysql-adapter.md).
+
+## MariaDB adapter
+
+Phase 2E provides `MariaDBAdapter` using the same asyncmy dependency. It opens one async
+connection per operation, configures read-only transaction defaults, and bounds statements with
+the MariaDB session variable `max_statement_time` expressed in (fractional) seconds rather than
+MySQL's `max_execution_time` milliseconds. This is the principal reason MariaDB stays a distinct
+adapter from MySQL. Use a least-privilege, read-only MariaDB account; session settings are defense
+in depth. Sampling has a hard row limit. See [ADR 0004](docs/adr/0004-mariadb-adapter.md).

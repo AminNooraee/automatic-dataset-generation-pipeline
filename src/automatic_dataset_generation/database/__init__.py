@@ -15,6 +15,7 @@ from automatic_dataset_generation.database.errors import (
     UnsupportedDatabaseEngineError,
 )
 from automatic_dataset_generation.database.factory import DatabaseAdapterFactory
+from automatic_dataset_generation.database.mariadb import MariaDBAdapter
 from automatic_dataset_generation.database.models import (
     ColumnInfo,
     DatabaseServerInfo,
@@ -38,6 +39,7 @@ __all__ = [
     "DatabaseObjectNotFoundError",
     "DatabaseOperationError",
     "DatabaseServerInfo",
+    "MariaDBAdapter",
     "MySQLAdapter",
     "PostgreSQLAdapter",
     "RelationshipInfo",
