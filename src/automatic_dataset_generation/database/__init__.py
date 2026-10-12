@@ -24,6 +24,7 @@ from automatic_dataset_generation.database.models import (
     TableDescription,
     TableInfo,
 )
+from automatic_dataset_generation.database.mssql import MSSQLAdapter
 from automatic_dataset_generation.database.mysql import MySQLAdapter
 from automatic_dataset_generation.database.postgresql import PostgreSQLAdapter
 
@@ -39,6 +40,7 @@ __all__ = [
     "DatabaseObjectNotFoundError",
     "DatabaseOperationError",
     "DatabaseServerInfo",
+    "MSSQLAdapter",
     "MariaDBAdapter",
     "MySQLAdapter",
     "PostgreSQLAdapter",
