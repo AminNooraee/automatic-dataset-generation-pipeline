@@ -26,6 +26,7 @@ from automatic_dataset_generation.database.models import (
 )
 from automatic_dataset_generation.database.mssql import MSSQLAdapter
 from automatic_dataset_generation.database.mysql import MySQLAdapter
+from automatic_dataset_generation.database.oracle import OracleAdapter
 from automatic_dataset_generation.database.postgresql import PostgreSQLAdapter
 
 __all__ = [
@@ -43,6 +44,7 @@ __all__ = [
     "MSSQLAdapter",
     "MariaDBAdapter",
     "MySQLAdapter",
+    "OracleAdapter",
     "PostgreSQLAdapter",
     "RelationshipInfo",
     "SampleResult",

@@ -2,7 +2,7 @@
 
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
-contains the Phase 1 foundation, Phase 2A/2B contracts, and Phase 2C/2D/2E/2F adapters.
+contains the Phase 1 foundation, Phase 2A/2B contracts, and Phase 2C/2D/2E/2F/2G adapters.
 
 ## Current scope
 
@@ -10,8 +10,8 @@ Phase 1 establishes packaging, module boundaries, engineering standards, configu
 Phase 2A adds typed relational engine and driver detection from connection-string URI schemes. It
 does not establish database connections, and raw credentials remain protected by `SecretStr`.
 Phase 2B adds typed engine-neutral metadata/result models, an asynchronous adapter contract, and a
-dependency-injected adapter factory with no global registry. PostgreSQL, MySQL, MariaDB, and
-Microsoft SQL Server adapters now implement that contract. MCP database tools, agent or LiteLLM
+dependency-injected adapter factory with no global registry. PostgreSQL, MySQL, MariaDB, Microsoft
+SQL Server, and Oracle adapters now implement that contract. MCP database tools, agent or LiteLLM
 integration, dataset planning/generation/validation/publishing logic, CI, and containers remain
 unimplemented.
 
@@ -107,7 +107,8 @@ synthetic, non-sensitive test data.
 - Phase 2D - MySQLAdapter (complete)
 - Phase 2E - MariaDBAdapter (complete)
 - Phase 2F - MSSQLAdapter (complete)
-- Phase 2 (remainder) - Oracle adapter, and MCP database tools (pending)
+- Phase 2G - OracleAdapter (complete)
+- Phase 2 (remainder) - MCP database tools (pending)
 - Phase 3 - security and sanitization
 - Phase 4 - agent orchestration
 - Phase 5 - dataset planner
@@ -118,10 +119,10 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 2F. Connection parsing, adapter contracts, and adapter selection perform no network access.
-PostgreSQL, MySQL, MariaDB, and Microsoft SQL Server adapters connect only when an allowlisted
-operation runs. The unresolved registry endpoint and generation semantics documented in ADR 0001
-must be settled before their corresponding implementation phases.
+Phase 2G. Connection parsing, adapter contracts, and adapter selection perform no network access.
+PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, and Oracle adapters connect only when an
+allowlisted operation runs. The unresolved registry endpoint and generation semantics documented in
+ADR 0001 must be settled before their corresponding implementation phases.
 
 ## PostgreSQL adapter
 
@@ -157,3 +158,15 @@ switch, so read-only access is enforced by a least-privilege principal plus allo
 statements; `ApplicationIntent=ReadOnly` is a workload routing hint, not an authorization boundary.
 Statement timeouts are set per connection in whole seconds before any cursor is created. Sampling
 has a hard row limit. See [ADR 0005](docs/adr/0005-mssql-adapter.md).
+
+## Oracle adapter
+
+Phase 2G provides `OracleAdapter` using python-oracledb 26.x in Thin mode. It is native asyncio: one
+`connect_async` connection per operation, with no worker thread and no pool. Each operation sets the
+session to a read-only transaction as its first statement (fail-closed) and sets the driver's
+`call_timeout` in milliseconds before any query. A least-privilege, read-only Oracle principal is
+still mandatory; the transaction mode is defense in depth. Metadata comes from `ALL_*` catalog views
+(no `DBA_*` requirement), identifiers use Oracle double-quoting, and relationships pair composite
+primary/foreign key columns by position. `get_row_count` is an exact `COUNT(*)`; sampling is bounded
+by `FETCH FIRST (limit + 1) ROWS ONLY`. Driver and transport errors are converted to credential-safe
+domain errors; there is no generic SQL API. See [ADR 0006](docs/adr/0006-oracle-adapter.md).

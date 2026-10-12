@@ -56,8 +56,8 @@ capabilities.
 
 - Real PostgreSQL, MySQL, Microsoft SQL Server, and Oracle adapters were not implemented when this
   ADR was accepted. Resolution: PostgreSQLAdapter (Phase 2C, ADR 0002), MySQLAdapter (Phase 2D,
-  ADR 0003), MariaDBAdapter (Phase 2E, ADR 0004), and MSSQLAdapter (Phase 2F, ADR 0005) are now
-  implemented. The Oracle adapter remains unresolved and pending.
+  ADR 0003), MariaDBAdapter (Phase 2E, ADR 0004), MSSQLAdapter (Phase 2F, ADR 0005), and
+  OracleAdapter (Phase 2G, ADR 0006) are now implemented.
 - The internal HF-compatible dataset registry endpoint is not yet available.
 - The exact semantics of "10 outputs per record" are not yet confirmed, including whether the count
   is a target, a maximum, or a requirement and how rejected outputs affect it.
