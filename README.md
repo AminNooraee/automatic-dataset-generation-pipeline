@@ -2,7 +2,7 @@
 
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
-contains the Phase 1 foundation, Phase 2A/2B contracts, and Phase 2C/2D/2E/2F/2G adapters.
+contains the Phase 1 foundation, Phase 2A/2B contracts, and Phase 2C/2D/2E/2F/2G/2H adapters.
 
 ## Current scope
 
@@ -11,9 +11,9 @@ Phase 2A adds typed relational engine and driver detection from connection-strin
 does not establish database connections, and raw credentials remain protected by `SecretStr`.
 Phase 2B adds typed engine-neutral metadata/result models, an asynchronous adapter contract, and a
 dependency-injected adapter factory with no global registry. PostgreSQL, MySQL, MariaDB, Microsoft
-SQL Server, and Oracle adapters now implement that contract. MCP database tools, agent or LiteLLM
-integration, dataset planning/generation/validation/publishing logic, CI, and containers remain
-unimplemented.
+SQL Server, Oracle, and SQLite adapters now implement that contract. MCP database tools, agent or
+LiteLLM integration, dataset planning/generation/validation/publishing logic, CI, and containers
+remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
 transport and infrastructure concerns. Future MCP handlers will translate requests and responses
@@ -108,6 +108,7 @@ synthetic, non-sensitive test data.
 - Phase 2E - MariaDBAdapter (complete)
 - Phase 2F - MSSQLAdapter (complete)
 - Phase 2G - OracleAdapter (complete)
+- Phase 2H - SQLiteAdapter (complete)
 - Phase 2 (remainder) - MCP database tools (pending)
 - Phase 3 - security and sanitization
 - Phase 4 - agent orchestration
@@ -119,8 +120,8 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 2G. Connection parsing, adapter contracts, and adapter selection perform no network access.
-PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, and Oracle adapters connect only when an
+Phase 2H. Connection parsing, adapter contracts, and adapter selection perform no network access.
+PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle, and SQLite adapters connect only when an
 allowlisted operation runs. The unresolved registry endpoint and generation semantics documented in
 ADR 0001 must be settled before their corresponding implementation phases.
 
@@ -170,3 +171,13 @@ still mandatory; the transaction mode is defense in depth. Metadata comes from `
 primary/foreign key columns by position. `get_row_count` is an exact `COUNT(*)`; sampling is bounded
 by `FETCH FIRST (limit + 1) ROWS ONLY`. Driver and transport errors are converted to credential-safe
 domain errors; there is no generic SQL API. See [ADR 0006](docs/adr/0006-oracle-adapter.md).
+
+## SQLite adapter
+
+Phase 2H provides `SQLiteAdapter` using Python's standard-library `sqlite3`, with no added runtime
+dependency. It supports only existing local file databases and opens one read-only connection per
+operation in a worker thread. SQLite URI `mode=ro` is reinforced by verified `PRAGMA query_only`;
+metadata uses `table_list`, `table_xinfo`, and `foreign_key_list`. Counts are exact and sampling is
+bounded. The adapter exposes only `main`, does not support `:memory:`, `ATTACH`, network/UNC paths,
+pooling, or generic SQL, and interprets `connect_timeout` as a lock-wait timeout. Statement timeouts
+use SQLite's cooperative progress handler. See [ADR 0007](docs/adr/0007-sqlite-adapter.md).

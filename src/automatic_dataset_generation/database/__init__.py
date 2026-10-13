@@ -28,6 +28,7 @@ from automatic_dataset_generation.database.mssql import MSSQLAdapter
 from automatic_dataset_generation.database.mysql import MySQLAdapter
 from automatic_dataset_generation.database.oracle import OracleAdapter
 from automatic_dataset_generation.database.postgresql import PostgreSQLAdapter
+from automatic_dataset_generation.database.sqlite import SQLiteAdapter
 
 __all__ = [
     "ColumnInfo",
@@ -47,6 +48,7 @@ __all__ = [
     "OracleAdapter",
     "PostgreSQLAdapter",
     "RelationshipInfo",
+    "SQLiteAdapter",
     "SampleResult",
     "TableDescription",
     "TableInfo",
