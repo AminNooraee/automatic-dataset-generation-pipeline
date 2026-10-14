@@ -2,8 +2,8 @@
 
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
-contains the Phase 1 foundation, Phase 2A/2B contracts, Phase 2C/2D/2E/2F/2G/2H adapters, and the
-Phase 2I safe database MCP tool boundary.
+contains the Phase 1 foundation, Phase 2A/2B contracts, Phase 2C/2D/2E/2F/2G/2H adapters, the
+Phase 2I safe database MCP tool boundary, and the Phase 3A sanitization contracts and policy.
 
 ## Current scope
 
@@ -13,7 +13,11 @@ does not establish database connections, and raw credentials remain protected by
 Phase 2B adds typed engine-neutral metadata/result models, an asynchronous adapter contract, and a
 dependency-injected adapter factory with no global registry. PostgreSQL, MySQL, MariaDB, Microsoft
 SQL Server, Oracle, and SQLite adapters now implement that contract. Phase 2I exposes those
-adapters through a safe FastMCP database tool boundary. Agent or LiteLLM integration, dataset
+adapters through a safe FastMCP database tool boundary. Phase 3A adds the deterministic security
+contracts and the fail-closed `SanitizationPolicy`: immutable, metadata-only field and
+classification contracts, an LLM-eligible `SanitizedSample` boundary, and a classification-to-action
+policy. Phase 3A defines these contracts and the policy only; it performs no detection,
+transformation, or leakage validation. Agent or LiteLLM integration, dataset
 planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
@@ -30,7 +34,7 @@ src/automatic_dataset_generation/
 ├── core/           # Runtime configuration and cross-cutting foundations
 ├── database/       # Connection parsing, metadata contracts, and adapter selection
 ├── mcp/            # Safe FastMCP database tool boundary (Phase 2I)
-├── security/       # Future deterministic sanitization and policy enforcement
+├── security/       # Sanitization contracts and policy (Phase 3A); later 3B-3F deferred
 ├── planning/       # Future dataset planning
 ├── generation/     # Future dataset generation
 ├── validation/     # Future dataset validation
@@ -111,7 +115,12 @@ synthetic, non-sensitive test data.
 - Phase 2G - OracleAdapter (complete)
 - Phase 2H - SQLiteAdapter (complete)
 - Phase 2I - safe database MCP tool boundary (complete)
-- Phase 3 - security and sanitization
+- Phase 3A - sanitization contracts and policy (complete)
+- Phase 3B - secret / credential detection
+- Phase 3C - PII classification
+- Phase 3D - sanitization transforms
+- Phase 3E - sanitization orchestration
+- Phase 3F - leakage validation
 - Phase 4 - agent orchestration
 - Phase 5 - dataset planner
 - Phase 6 - dataset generator
@@ -121,13 +130,20 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 2I. Connection parsing, adapter contracts, and adapter selection perform no network access.
+Phase 3A. Connection parsing, adapter contracts, and adapter selection perform no network access.
 PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle, and SQLite adapters connect only when an
 allowlisted operation runs. Phase 2I wraps those adapters in a safe FastMCP database tool boundary
 that exposes exactly seven read-only tools, takes no connection strings or credentials as tool
 arguments, never accepts arbitrary SQL, and returns raw (unsanitized) sample rows that must pass
-through Phase 3 before reaching an LLM. The unresolved registry endpoint and generation semantics
-documented in ADR 0001 must be settled before their corresponding implementation phases.
+through Phase 3 before reaching an LLM.
+
+Phase 3A adds the security and sanitization contracts and the fail-closed `SanitizationPolicy` only:
+immutable, metadata-only field and classification contracts, the LLM-eligible `SanitizedSample`
+boundary, and a classification-to-action policy. It performs no detection, transformation, or
+leakage validation. Constructing a `SanitizedSample` does not prove the data is leakage-free; that
+remains a later, separate step (Phase 3F) before any LLM exposure. The unresolved registry endpoint
+and generation semantics documented in ADR 0001 must be settled before their corresponding
+implementation phases.
 
 ## PostgreSQL adapter
 
@@ -198,3 +214,22 @@ tool errors. `sample_rows` returns raw, **unsanitized** rows that must pass thro
 security and sanitization layer before they may reach an LLM. `create_database_mcp` returns a server
 without starting a network transport, and importing the module performs no database or network
 activity. See [ADR 0008](docs/adr/0008-database-mcp.md).
+
+## Sanitization
+
+Phase 3A provides the security and sanitization contracts and the fail-closed `SanitizationPolicy`
+only. `SampleResult` remains trusted raw, **unsanitized** data and never reaches a prompt. The
+metadata-only contracts `FieldReference`, `FieldClassification`, and `SanitizationDecision` carry no
+raw or matched cell value. `SanitizedSample` is the distinct, LLM-eligible boundary contract; it
+accepts only the `SanitizedValue` domain (`None`, `bool`, `int`, finite `float`, `str`), rejects
+arbitrary driver or database objects and non-finite floats, and hides its rows from `repr`. Its rows
+may not contain raw, unsanitized data. Constructing a `SanitizedSample` does not by itself prove the
+data is leakage-free; leakage validation is a later, separate step (Phase 3F).
+
+`SanitizationPolicy` is immutable and fail-closed. It maps every `SensitivityClass` to a
+`SanitizationAction`; `pii`, `secret`, `credential`, and `unknown` can never map to `allow`, and the
+default policy is `non_sensitive -> allow`, `pii -> pseudonymize`, and `secret`, `credential`, and
+`unknown` -> `redact`. The mapping is stored as an immutable `Mapping` snapshot, so external mutation
+cannot change policy behavior. `SanitizationReport` carries counts and policy lineage only. Phase 3A
+performs no detection, transformation, or pseudonymization. See
+[ADR 0009](docs/adr/0009-sanitization-contracts-policy.md).
