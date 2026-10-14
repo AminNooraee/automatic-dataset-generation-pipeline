@@ -2,7 +2,8 @@
 
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
-contains the Phase 1 foundation, Phase 2A/2B contracts, and Phase 2C/2D/2E/2F/2G/2H adapters.
+contains the Phase 1 foundation, Phase 2A/2B contracts, Phase 2C/2D/2E/2F/2G/2H adapters, and the
+Phase 2I safe database MCP tool boundary.
 
 ## Current scope
 
@@ -11,9 +12,9 @@ Phase 2A adds typed relational engine and driver detection from connection-strin
 does not establish database connections, and raw credentials remain protected by `SecretStr`.
 Phase 2B adds typed engine-neutral metadata/result models, an asynchronous adapter contract, and a
 dependency-injected adapter factory with no global registry. PostgreSQL, MySQL, MariaDB, Microsoft
-SQL Server, Oracle, and SQLite adapters now implement that contract. MCP database tools, agent or
-LiteLLM integration, dataset planning/generation/validation/publishing logic, CI, and containers
-remain unimplemented.
+SQL Server, Oracle, and SQLite adapters now implement that contract. Phase 2I exposes those
+adapters through a safe FastMCP database tool boundary. Agent or LiteLLM integration, dataset
+planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
 transport and infrastructure concerns. Future MCP handlers will translate requests and responses
@@ -28,7 +29,7 @@ See [ADR 0001](docs/adr/0001-system-architecture.md) for the decisions and curre
 src/automatic_dataset_generation/
 ├── core/           # Runtime configuration and cross-cutting foundations
 ├── database/       # Connection parsing, metadata contracts, and adapter selection
-├── mcp/            # Future MCP transport boundary
+├── mcp/            # Safe FastMCP database tool boundary (Phase 2I)
 ├── security/       # Future deterministic sanitization and policy enforcement
 ├── planning/       # Future dataset planning
 ├── generation/     # Future dataset generation
@@ -109,7 +110,7 @@ synthetic, non-sensitive test data.
 - Phase 2F - MSSQLAdapter (complete)
 - Phase 2G - OracleAdapter (complete)
 - Phase 2H - SQLiteAdapter (complete)
-- Phase 2 (remainder) - MCP database tools (pending)
+- Phase 2I - safe database MCP tool boundary (complete)
 - Phase 3 - security and sanitization
 - Phase 4 - agent orchestration
 - Phase 5 - dataset planner
@@ -120,10 +121,13 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 2H. Connection parsing, adapter contracts, and adapter selection perform no network access.
+Phase 2I. Connection parsing, adapter contracts, and adapter selection perform no network access.
 PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle, and SQLite adapters connect only when an
-allowlisted operation runs. The unresolved registry endpoint and generation semantics documented in
-ADR 0001 must be settled before their corresponding implementation phases.
+allowlisted operation runs. Phase 2I wraps those adapters in a safe FastMCP database tool boundary
+that exposes exactly seven read-only tools, takes no connection strings or credentials as tool
+arguments, never accepts arbitrary SQL, and returns raw (unsanitized) sample rows that must pass
+through Phase 3 before reaching an LLM. The unresolved registry endpoint and generation semantics
+documented in ADR 0001 must be settled before their corresponding implementation phases.
 
 ## PostgreSQL adapter
 
@@ -181,3 +185,16 @@ metadata uses `table_list`, `table_xinfo`, and `foreign_key_list`. Counts are ex
 bounded. The adapter exposes only `main`, does not support `:memory:`, `ATTACH`, network/UNC paths,
 pooling, or generic SQL, and interprets `connect_timeout` as a lock-wait timeout. Statement timeouts
 use SQLite's cooperative progress handler. See [ADR 0007](docs/adr/0007-sqlite-adapter.md).
+
+## Database MCP
+
+Phase 2I provides a safe database MCP tool boundary built on FastMCP 4.x. A trusted, already-built
+`DatabaseAdapter` is injected; the boundary takes no connection string or credential as a tool
+argument and never accepts arbitrary SQL. It exposes exactly seven read-only tools: `get_server_info`,
+`list_schemas`, `list_tables`, `describe_table`, `get_relationships`, `get_row_count`, and
+`sample_rows`. MCP-level policy limits bound the requested row `limit`, explicit column count,
+nested depth, and total encoded values. Adapter errors are translated to fixed, low-information
+tool errors. `sample_rows` returns raw, **unsanitized** rows that must pass through the Phase 3
+security and sanitization layer before they may reach an LLM. `create_database_mcp` returns a server
+without starting a network transport, and importing the module performs no database or network
+activity. See [ADR 0008](docs/adr/0008-database-mcp.md).
