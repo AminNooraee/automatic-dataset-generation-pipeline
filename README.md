@@ -3,7 +3,8 @@
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
 contains the Phase 1 foundation, Phase 2A/2B contracts, Phase 2C/2D/2E/2F/2G/2H adapters, the
-Phase 2I safe database MCP tool boundary, and the Phase 3A sanitization contracts and policy.
+Phase 2I safe database MCP tool boundary, the Phase 3A sanitization contracts and policy, and the
+Phase 3B secret and credential detector.
 
 ## Current scope
 
@@ -17,7 +18,11 @@ adapters through a safe FastMCP database tool boundary. Phase 3A adds the determ
 contracts and the fail-closed `SanitizationPolicy`: immutable, metadata-only field and
 classification contracts, an LLM-eligible `SanitizedSample` boundary, and a classification-to-action
 policy. Phase 3A defines these contracts and the policy only; it performs no detection,
-transformation, or leakage validation. Agent or LiteLLM integration, dataset
+transformation, or leakage validation. Phase 3B adds the deterministic `SecretCredentialDetector`:
+a no-LLM classifier that scans raw `SampleResult` rows for secrets and credentials and returns
+safe, metadata-only field classifications (`credential`, `secret`, or `unknown`) bounded by
+per-cell and sample-wide limits. It emits no raw or matched values and performs no transformation.
+Agent or LiteLLM integration, dataset
 planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
@@ -34,7 +39,7 @@ src/automatic_dataset_generation/
 ├── core/           # Runtime configuration and cross-cutting foundations
 ├── database/       # Connection parsing, metadata contracts, and adapter selection
 ├── mcp/            # Safe FastMCP database tool boundary (Phase 2I)
-├── security/       # Sanitization contracts and policy (Phase 3A); later 3B-3F deferred
+├── security/       # Sanitization contracts/policy (3A) and secret/credential detection (3B); 3C-3F deferred
 ├── planning/       # Future dataset planning
 ├── generation/     # Future dataset generation
 ├── validation/     # Future dataset validation
@@ -116,7 +121,7 @@ synthetic, non-sensitive test data.
 - Phase 2H - SQLiteAdapter (complete)
 - Phase 2I - safe database MCP tool boundary (complete)
 - Phase 3A - sanitization contracts and policy (complete)
-- Phase 3B - secret / credential detection
+- Phase 3B - secret / credential detection (complete)
 - Phase 3C - PII classification
 - Phase 3D - sanitization transforms
 - Phase 3E - sanitization orchestration
@@ -130,7 +135,7 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 3A. Connection parsing, adapter contracts, and adapter selection perform no network access.
+Phase 3B. Connection parsing, adapter contracts, and adapter selection perform no network access.
 PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle, and SQLite adapters connect only when an
 allowlisted operation runs. Phase 2I wraps those adapters in a safe FastMCP database tool boundary
 that exposes exactly seven read-only tools, takes no connection strings or credentials as tool
@@ -233,3 +238,16 @@ default policy is `non_sensitive -> allow`, `pii -> pseudonymize`, and `secret`,
 cannot change policy behavior. `SanitizationReport` carries counts and policy lineage only. Phase 3A
 performs no detection, transformation, or pseudonymization. See
 [ADR 0009](docs/adr/0009-sanitization-contracts-policy.md).
+
+Phase 3B adds the deterministic `SecretCredentialDetector`. Given a raw `SampleResult`, it performs
+no-LLM, bounded scanning and returns a metadata-only `SecretDetectionResult` classifying fields as
+`credential`, `secret`, or `unknown`. It uses conservative tokenized column and nested-key matching
+plus a small set of high-confidence value patterns (PEM private keys, `Bearer`/`Basic` headers, JWT
+structure, URI user-info passwords, and key/value assignments); there is no entropy-only detection.
+It emits **no** raw or matched value, never stringifies arbitrary uninspectable objects (such values
+are classified `unknown`), and fails closed on oversized or uninspectable input. Scanning is bounded
+per cell (depth and element limits), by a sample-wide `max_cells`, and by a shared sample-wide
+`max_total_container_elements`; overflow aborts the scan with a low-information `SecretDetectionError`
+and no partial result. Phase 3B classifies only; it performs no redaction, masking, or
+pseudonymization and constructs no `SanitizedSample`. See
+[ADR 0010](docs/adr/0010-secret-credential-detection.md).

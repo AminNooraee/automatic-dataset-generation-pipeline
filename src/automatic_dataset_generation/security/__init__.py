@@ -11,6 +11,12 @@ from automatic_dataset_generation.security.models import (
     SensitivityClass,
 )
 from automatic_dataset_generation.security.policy import SanitizationPolicy
+from automatic_dataset_generation.security.secret_detection import (
+    SecretCredentialDetector,
+    SecretDetectionConfig,
+    SecretDetectionError,
+    SecretDetectionResult,
+)
 
 __all__ = [
     "FieldClassification",
@@ -21,5 +27,9 @@ __all__ = [
     "SanitizationReport",
     "SanitizedSample",
     "SanitizedValue",
+    "SecretCredentialDetector",
+    "SecretDetectionConfig",
+    "SecretDetectionError",
+    "SecretDetectionResult",
     "SensitivityClass",
 ]
