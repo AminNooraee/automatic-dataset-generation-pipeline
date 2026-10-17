@@ -4,7 +4,8 @@ Production-oriented internal infrastructure for generating ML and LLM datasets f
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
 contains the Phase 1 foundation, Phase 2A/2B contracts, Phase 2C/2D/2E/2F/2G/2H adapters, the
 Phase 2I safe database MCP tool boundary, the Phase 3A sanitization contracts and policy, the
-Phase 3B secret and credential detector, and the Phase 3C PII detector.
+Phase 3B secret and credential detector, the Phase 3C PII detector, and the Phase 3D
+sanitization transforms.
 
 ## Current scope
 
@@ -27,7 +28,14 @@ Phase 3C adds the deterministic `PIIDetector`, a second no-LLM classifier over t
 uses conservative tokenized column/nested-key name matching plus a small set of high-confidence,
 whole-value patterns (email, international phone, IP, MAC, Luhn-validated card numbers, and
 MOD-97-validated IBANs); there is no entropy-only detection and no free-text value scanning. It
-emits no raw or matched values and performs no transformation.
+emits no raw or matched values and performs no transformation. Phase 3D adds the deterministic
+`SanitizationTransformer`, which applies one already-resolved `SanitizationAction` to one raw
+value: `allow` checks and normalizes the scalar domain, `redact`/`mask` return a fixed marker that
+reveals no length or type, `drop` is distinguishable from a genuine `None`, and `pseudonymize`
+returns a keyed, collision-safe, length- and type-independent token derived from HMAC-SHA256 over a
+canonical byte encoding (the HMAC key is supplied by the operator as a `SecretStr`, never
+hardcoded). It is fail-closed and leak-free and transforms one value only; it does not run
+detectors, build a `SanitizedSample`, or validate leakage (Phase 3E and 3F).
 Agent or LiteLLM integration, dataset
 planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
@@ -45,7 +53,7 @@ src/automatic_dataset_generation/
 ├── core/           # Runtime configuration and cross-cutting foundations
 ├── database/       # Connection parsing, metadata contracts, and adapter selection
 ├── mcp/            # Safe FastMCP database tool boundary (Phase 2I)
-├── security/       # Sanitization contracts/policy (3A) and secret/credential detection (3B); 3C-3F deferred
+├── security/       # Sanitization contracts/policy (3A), secret/credential (3B), PII (3C), and transforms (3D); 3E-3F deferred
 ├── planning/       # Future dataset planning
 ├── generation/     # Future dataset generation
 ├── validation/     # Future dataset validation
@@ -129,7 +137,7 @@ synthetic, non-sensitive test data.
 - Phase 3A - sanitization contracts and policy (complete)
 - Phase 3B - secret / credential detection (complete)
 - Phase 3C - PII classification (complete)
-- Phase 3D - sanitization transforms
+- Phase 3D - sanitization transforms (complete)
 - Phase 3E - sanitization orchestration
 - Phase 3F - leakage validation
 - Phase 4 - agent orchestration
@@ -141,7 +149,7 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 3C. Connection parsing, adapter contracts, and adapter selection perform no network access.
+Phase 3D. Connection parsing, adapter contracts, and adapter selection perform no network access.
 PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle, and SQLite adapters connect only when an
 allowlisted operation runs. Phase 2I wraps those adapters in a safe FastMCP database tool boundary
 that exposes exactly seven read-only tools, takes no connection strings or credentials as tool
@@ -280,3 +288,17 @@ bounded scanning (`max_cells` plus the shared sample-wide `max_total_container_e
 overflow aborting via a low-information `PIIDetectionError`). Phase 3C classifies only; it performs
 no redaction, masking, or pseudonymization and constructs no `SanitizedSample`. See
 [ADR 0011](docs/adr/0011-pii-detection.md).
+
+Phase 3D adds the deterministic `SanitizationTransformer`, which applies one already-resolved
+`SanitizationAction` to one raw value and returns a metadata-aware `SanitizationTransformResult`.
+`allow` checks the `SanitizedValue` domain and normalizes safe types (`Decimal`, `date`/`datetime`/
+`time`, `UUID`, and bounded UTF-8-decodable bytes) or rejects fail-closed; `redact` and `mask` return
+a fixed marker (`[REDACTED]` / `[MASKED]`) that reveals no length or type; `drop` sets `dropped` and
+carries no value, so it is distinguishable from a genuine `None`; and `pseudonymize` returns a keyed,
+collision-safe token from HMAC-SHA256 over a type-explicit canonical byte encoding. The HMAC key is
+supplied by the operator as a `SecretStr` (32-4096 bytes, never hardcoded, never disclosed), and there
+is no stored mapping, so pseudonyms are non-reversible without it. Every value is bounded by its own
+`SanitizationTransformConfig`, no generic `str()`/`repr()` is called on arbitrary objects, and the
+error/result never echo a raw value. Phase 3D transforms one value only; it does not run the
+detectors, merge findings, build a `SanitizedSample`, or validate leakage (Phase 3E and 3F). See
+[ADR 0012](docs/adr/0012-sanitization-transforms.md).

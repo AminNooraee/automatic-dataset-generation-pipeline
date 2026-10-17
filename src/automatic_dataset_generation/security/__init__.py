@@ -23,6 +23,12 @@ from automatic_dataset_generation.security.secret_detection import (
     SecretDetectionError,
     SecretDetectionResult,
 )
+from automatic_dataset_generation.security.transforms import (
+    SanitizationTransformConfig,
+    SanitizationTransformer,
+    SanitizationTransformError,
+    SanitizationTransformResult,
+)
 
 __all__ = [
     "FieldClassification",
@@ -35,6 +41,10 @@ __all__ = [
     "SanitizationDecision",
     "SanitizationPolicy",
     "SanitizationReport",
+    "SanitizationTransformConfig",
+    "SanitizationTransformError",
+    "SanitizationTransformResult",
+    "SanitizationTransformer",
     "SanitizedSample",
     "SanitizedValue",
     "SecretCredentialDetector",
