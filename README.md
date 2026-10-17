@@ -3,8 +3,8 @@
 Production-oriented internal infrastructure for generating ML and LLM datasets from enterprise
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
 contains the Phase 1 foundation, Phase 2A/2B contracts, Phase 2C/2D/2E/2F/2G/2H adapters, the
-Phase 2I safe database MCP tool boundary, the Phase 3A sanitization contracts and policy, and the
-Phase 3B secret and credential detector.
+Phase 2I safe database MCP tool boundary, the Phase 3A sanitization contracts and policy, the
+Phase 3B secret and credential detector, and the Phase 3C PII detector.
 
 ## Current scope
 
@@ -22,6 +22,12 @@ transformation, or leakage validation. Phase 3B adds the deterministic `SecretCr
 a no-LLM classifier that scans raw `SampleResult` rows for secrets and credentials and returns
 safe, metadata-only field classifications (`credential`, `secret`, or `unknown`) bounded by
 per-cell and sample-wide limits. It emits no raw or matched values and performs no transformation.
+Phase 3C adds the deterministic `PIIDetector`, a second no-LLM classifier over the same raw
+`SampleResult` that returns safe, metadata-only field classifications of `pii` or `unknown`. It
+uses conservative tokenized column/nested-key name matching plus a small set of high-confidence,
+whole-value patterns (email, international phone, IP, MAC, Luhn-validated card numbers, and
+MOD-97-validated IBANs); there is no entropy-only detection and no free-text value scanning. It
+emits no raw or matched values and performs no transformation.
 Agent or LiteLLM integration, dataset
 planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
@@ -122,7 +128,7 @@ synthetic, non-sensitive test data.
 - Phase 2I - safe database MCP tool boundary (complete)
 - Phase 3A - sanitization contracts and policy (complete)
 - Phase 3B - secret / credential detection (complete)
-- Phase 3C - PII classification
+- Phase 3C - PII classification (complete)
 - Phase 3D - sanitization transforms
 - Phase 3E - sanitization orchestration
 - Phase 3F - leakage validation
@@ -135,7 +141,7 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 3B. Connection parsing, adapter contracts, and adapter selection perform no network access.
+Phase 3C. Connection parsing, adapter contracts, and adapter selection perform no network access.
 PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle, and SQLite adapters connect only when an
 allowlisted operation runs. Phase 2I wraps those adapters in a safe FastMCP database tool boundary
 that exposes exactly seven read-only tools, takes no connection strings or credentials as tool
@@ -149,6 +155,16 @@ leakage validation. Constructing a `SanitizedSample` does not prove the data is 
 remains a later, separate step (Phase 3F) before any LLM exposure. The unresolved registry endpoint
 and generation semantics documented in ADR 0001 must be settled before their corresponding
 implementation phases.
+
+Phase 3C adds the deterministic `PIIDetector`, a second no-LLM, no-entropy classifier over the same
+raw `SampleResult` that returns metadata-only `pii`/`unknown` field classifications. It uses
+conservative tokenized column and nested-key name matching plus a small set of high-confidence,
+whole-value patterns (email, international phone with an explicit `+` country code, IPv4/IPv6 via
+Python's `ipaddress`, canonical MAC, standalone Luhn-valid payment cards, and IBANs only when
+MOD-97-valid). It performs no free-text value scanning for names, addresses, dates of
+birth, or national IDs, and like Phase 3B it emits no raw or matched value, fails closed on
+oversized or uninspectable input, and performs no transformation. See
+[ADR 0011](docs/adr/0011-pii-detection.md).
 
 ## PostgreSQL adapter
 
@@ -251,3 +267,16 @@ per cell (depth and element limits), by a sample-wide `max_cells`, and by a shar
 and no partial result. Phase 3B classifies only; it performs no redaction, masking, or
 pseudonymization and constructs no `SanitizedSample`. See
 [ADR 0010](docs/adr/0010-secret-credential-detection.md).
+
+Phase 3C adds the deterministic `PIIDetector`, a second no-LLM, no-entropy detector over the same raw
+`SampleResult` that returns a metadata-only `PIIDetectionResult` classifying fields as `pii` or
+`unknown`. It uses conservative tokenized column and nested-key matching plus a small set of
+high-confidence, whole-value patterns (email, international phone with an explicit `+` country code,
+IPv4/IPv6 via Python's `ipaddress`, canonical MAC, standalone Luhn-valid payment cards, and IBANs
+only when MOD-97-valid). It performs no free-text value scanning for person names,
+postal addresses, dates of birth, or national IDs, and there is no entropy-only detection. It emits
+**no** raw or matched value, fails closed on oversized or uninspectable input, and mirrors Phase 3B's
+bounded scanning (`max_cells` plus the shared sample-wide `max_total_container_elements`, with
+overflow aborting via a low-information `PIIDetectionError`). Phase 3C classifies only; it performs
+no redaction, masking, or pseudonymization and constructs no `SanitizedSample`. See
+[ADR 0011](docs/adr/0011-pii-detection.md).

@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from automatic_dataset_generation.security import (
     FieldClassification,
     FieldReference,
+    PIIDetectionResult,
     SanitizationAction,
     SanitizationDecision,
     SanitizationPolicy,
@@ -346,6 +347,7 @@ def test_public_contracts_have_no_secret_storage_or_raw_value_fields() -> None:
     model_types = (
         FieldReference,
         FieldClassification,
+        PIIDetectionResult,
         SanitizationDecision,
         SanitizationPolicy,
         SanitizedSample,

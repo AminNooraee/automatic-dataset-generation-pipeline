@@ -10,6 +10,12 @@ from automatic_dataset_generation.security.models import (
     SanitizedValue,
     SensitivityClass,
 )
+from automatic_dataset_generation.security.pii_detection import (
+    PIIDetectionConfig,
+    PIIDetectionError,
+    PIIDetectionResult,
+    PIIDetector,
+)
 from automatic_dataset_generation.security.policy import SanitizationPolicy
 from automatic_dataset_generation.security.secret_detection import (
     SecretCredentialDetector,
@@ -21,6 +27,10 @@ from automatic_dataset_generation.security.secret_detection import (
 __all__ = [
     "FieldClassification",
     "FieldReference",
+    "PIIDetectionConfig",
+    "PIIDetectionError",
+    "PIIDetectionResult",
+    "PIIDetector",
     "SanitizationAction",
     "SanitizationDecision",
     "SanitizationPolicy",
