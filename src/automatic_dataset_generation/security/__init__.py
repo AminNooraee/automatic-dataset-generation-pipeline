@@ -17,6 +17,12 @@ from automatic_dataset_generation.security.pii_detection import (
     PIIDetector,
 )
 from automatic_dataset_generation.security.policy import SanitizationPolicy
+from automatic_dataset_generation.security.sanitizer import (
+    SanitizationOrchestrator,
+    SanitizationOrchestratorConfig,
+    SanitizationOrchestratorError,
+    SanitizationResult,
+)
 from automatic_dataset_generation.security.secret_detection import (
     SecretCredentialDetector,
     SecretDetectionConfig,
@@ -39,8 +45,12 @@ __all__ = [
     "PIIDetector",
     "SanitizationAction",
     "SanitizationDecision",
+    "SanitizationOrchestrator",
+    "SanitizationOrchestratorConfig",
+    "SanitizationOrchestratorError",
     "SanitizationPolicy",
     "SanitizationReport",
+    "SanitizationResult",
     "SanitizationTransformConfig",
     "SanitizationTransformError",
     "SanitizationTransformResult",

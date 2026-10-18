@@ -4,8 +4,8 @@ Production-oriented internal infrastructure for generating ML and LLM datasets f
 databases. The pipeline is being built in deliberately bounded phases; this repository currently
 contains the Phase 1 foundation, Phase 2A/2B contracts, Phase 2C/2D/2E/2F/2G/2H adapters, the
 Phase 2I safe database MCP tool boundary, the Phase 3A sanitization contracts and policy, the
-Phase 3B secret and credential detector, the Phase 3C PII detector, and the Phase 3D
-sanitization transforms.
+Phase 3B secret and credential detector, the Phase 3C PII detector, the Phase 3D
+sanitization transforms, and the Phase 3E sanitization orchestrator.
 
 ## Current scope
 
@@ -34,9 +34,12 @@ value: `allow` checks and normalizes the scalar domain, `redact`/`mask` return a
 reveals no length or type, `drop` is distinguishable from a genuine `None`, and `pseudonymize`
 returns a keyed, collision-safe, length- and type-independent token derived from HMAC-SHA256 over a
 canonical byte encoding (the HMAC key is supplied by the operator as a `SecretStr`, never
-hardcoded). It is fail-closed and leak-free and transforms one value only; it does not run
-detectors, build a `SanitizedSample`, or validate leakage (Phase 3E and 3F).
-Agent or LiteLLM integration, dataset
+hardcoded). Phase 3E adds the deterministic `SanitizationOrchestrator`, which runs both detectors
+over a raw `SampleResult`, merges classifications using a policy-aware precedence rule, resolves
+actions through `SanitizationPolicy`, applies cell transformations, handles dropped columns, and
+produces an immutable `SanitizationResult` containing a `SanitizedSample` and `SanitizationReport`.
+Phase 3E performs sanitization only; validating that a sample is leakage-free is deferred to
+mandatory Phase 3F. Agent or LiteLLM integration, dataset
 planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
@@ -53,7 +56,7 @@ src/automatic_dataset_generation/
 ├── core/           # Runtime configuration and cross-cutting foundations
 ├── database/       # Connection parsing, metadata contracts, and adapter selection
 ├── mcp/            # Safe FastMCP database tool boundary (Phase 2I)
-├── security/       # Sanitization contracts/policy (3A), secret/credential (3B), PII (3C), and transforms (3D); 3E-3F deferred
+├── security/       # Sanitization contracts/policy (3A), secret/credential (3B), PII (3C), transforms (3D), orchestrator (3E); 3F deferred
 ├── planning/       # Future dataset planning
 ├── generation/     # Future dataset generation
 ├── validation/     # Future dataset validation
@@ -138,7 +141,7 @@ synthetic, non-sensitive test data.
 - Phase 3B - secret / credential detection (complete)
 - Phase 3C - PII classification (complete)
 - Phase 3D - sanitization transforms (complete)
-- Phase 3E - sanitization orchestration
+- Phase 3E - sanitization orchestration (complete)
 - Phase 3F - leakage validation
 - Phase 4 - agent orchestration
 - Phase 5 - dataset planner
@@ -149,7 +152,7 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 3D. Connection parsing, adapter contracts, and adapter selection perform no network access.
+Phase 3E. Connection parsing, adapter contracts, and adapter selection perform no network access.
 PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle, and SQLite adapters connect only when an
 allowlisted operation runs. Phase 2I wraps those adapters in a safe FastMCP database tool boundary
 that exposes exactly seven read-only tools, takes no connection strings or credentials as tool
@@ -302,3 +305,20 @@ is no stored mapping, so pseudonyms are non-reversible without it. Every value i
 error/result never echo a raw value. Phase 3D transforms one value only; it does not run the
 detectors, merge findings, build a `SanitizedSample`, or validate leakage (Phase 3E and 3F). See
 [ADR 0012](docs/adr/0012-sanitization-transforms.md).
+
+Phase 3E adds the deterministic `SanitizationOrchestrator`, which coordinates the complete sanitization
+pipeline over a raw `SampleResult`. It validates actual sample dimensions against bounded resource
+limits (`max_fields`, `max_rows`, `max_cells`), runs both `SecretCredentialDetector` and `PIIDetector`,
+merges their findings using a documented, policy-aware precedence rule (`DROP > REDACT / MASK > PSEUDONYMIZE > ALLOW`
+with sensitivity severity tie-breaking) that never weakens protection, classifies unclassified fields as
+`unknown` (fail-closed), maps sensitivities to actions via `SanitizationPolicy`, applies
+`SanitizationTransformer` per cell, filters dropped columns without confusing them with legitimate nulls,
+enforces mandatory pseudonymization keys, and returns an immutable `SanitizationResult` containing a
+`SanitizedSample` and `SanitizationReport`. Failure is atomic: any processing error aborts the run
+with public exceptions cleanly detached from internal exception chains (`__context__` and `__cause__`
+stripped) to prevent leaking injected or matched sensitive material. Detected sensitive values are never
+exposed raw without policy protection, while explicitly approved non-sensitive values may remain in
+normalized form; payload serialization (`model_dump()`) carries row values and is NOT log-safe.
+Constructing a `SanitizedSample` does not by itself prove the sample is leakage-free; that remains the
+mandatory responsibility of Phase 3F before any LLM exposure. See
+[ADR 0013](docs/adr/0013-sanitization-orchestrator.md).
