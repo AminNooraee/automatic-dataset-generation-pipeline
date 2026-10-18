@@ -5,7 +5,7 @@ databases. The pipeline is being built in deliberately bounded phases; this repo
 contains the Phase 1 foundation, Phase 2A/2B contracts, Phase 2C/2D/2E/2F/2G/2H adapters, the
 Phase 2I safe database MCP tool boundary, the Phase 3A sanitization contracts and policy, the
 Phase 3B secret and credential detector, the Phase 3C PII detector, the Phase 3D
-sanitization transforms, and the Phase 3E sanitization orchestrator.
+sanitization transforms, the Phase 3E sanitization orchestrator, and the Phase 3F leakage validator.
 
 ## Current scope
 
@@ -38,8 +38,11 @@ hardcoded). Phase 3E adds the deterministic `SanitizationOrchestrator`, which ru
 over a raw `SampleResult`, merges classifications using a policy-aware precedence rule, resolves
 actions through `SanitizationPolicy`, applies cell transformations, handles dropped columns, and
 produces an immutable `SanitizationResult` containing a `SanitizedSample` and `SanitizationReport`.
-Phase 3E performs sanitization only; validating that a sample is leakage-free is deferred to
-mandatory Phase 3F. Agent or LiteLLM integration, dataset
+Phase 3F adds the deterministic `LeakageValidator`, an independent security gate that inspects
+sanitized samples for residual sensitive substrings (emails, phones, Luhn-valid cards, mod-97 IBANs,
+SSNs, credentials, JWTs, connection strings with passwords), verifies structural boundaries and
+resource budgets, revalidates report consistency, and emits an immutable `ValidatedSample` and
+`LeakageValidationReport`. Agent or LiteLLM integration, dataset
 planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
@@ -56,7 +59,7 @@ src/automatic_dataset_generation/
 ├── core/           # Runtime configuration and cross-cutting foundations
 ├── database/       # Connection parsing, metadata contracts, and adapter selection
 ├── mcp/            # Safe FastMCP database tool boundary (Phase 2I)
-├── security/       # Sanitization contracts/policy (3A), secret/credential (3B), PII (3C), transforms (3D), orchestrator (3E); 3F deferred
+├── security/       # Sanitization contracts/policy (3A), secret/credential (3B), PII (3C), transforms (3D), orchestrator (3E), leakage validator (3F)
 ├── planning/       # Future dataset planning
 ├── generation/     # Future dataset generation
 ├── validation/     # Future dataset validation
@@ -142,7 +145,7 @@ synthetic, non-sensitive test data.
 - Phase 3C - PII classification (complete)
 - Phase 3D - sanitization transforms (complete)
 - Phase 3E - sanitization orchestration (complete)
-- Phase 3F - leakage validation
+- Phase 3F - leakage validation (complete)
 - Phase 4 - agent orchestration
 - Phase 5 - dataset planner
 - Phase 6 - dataset generator
@@ -152,7 +155,7 @@ synthetic, non-sensitive test data.
 
 ## Status
 
-Phase 3E. Connection parsing, adapter contracts, and adapter selection perform no network access.
+Phase 3F. Connection parsing, adapter contracts, and adapter selection perform no network access.
 PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle, and SQLite adapters connect only when an
 allowlisted operation runs. Phase 2I wraps those adapters in a safe FastMCP database tool boundary
 that exposes exactly seven read-only tools, takes no connection strings or credentials as tool
@@ -322,3 +325,22 @@ normalized form; payload serialization (`model_dump()`) carries row values and i
 Constructing a `SanitizedSample` does not by itself prove the sample is leakage-free; that remains the
 mandatory responsibility of Phase 3F before any LLM exposure. See
 [ADR 0013](docs/adr/0013-sanitization-orchestrator.md).
+
+Phase 3F adds the deterministic `LeakageValidator`, which acts as the mandatory pre-LLM security gate
+between sanitization (Phase 3E) and prompt formulation (Phase 4). It accepts a `SanitizationResult` or
+`SanitizedSample`, revalidates actual row/column dimensions and scalar types against strict independent
+resource budgets (`max_fields`, `max_rows`, `max_cells`, `max_text_chars`, `max_total_text_chars`),
+rejects malformed or forged objects created via `model_construct` or unchecked `model_copy`, and verifies
+consistency against `SanitizationReport` metadata. The validator is aware of legitimate transformation markers
+(`[REDACTED]`, `[MASKED]`, `psn_v1_...`) and null values. It performs independent residual leakage scanning
+over retained cell text and metadata to detect embedded sensitive substrings: emails, international phones,
+payment cards with valid Luhn checksums, IBANs with valid mod-97 checksums, US SSNs, Bearer/Basic credentials,
+JWT-like tokens, private key PEM headers, database connection strings containing passwords, and credential
+assignments. Standard schema names (e.g. `email`, `password`) are not flagged as leakage. The validator
+applies single-pass bounded canonicalization (stripping zero-width Unicode characters and percent-decoding)
+and scans database connection strings with a linear O(N) candidate scanner that inspects all candidates.
+On success, it produces an immutable `ValidatedSample` that deeply snapshots columns and rows to protect
+against caller mutation or pipeline miswiring; hostile in-process Python execution is outside the enforceable
+boundary, and Phase 4 must revalidate contracts at the prompt-construction boundary immediately before LLM
+consumption. Failure is atomic: if any issue is detected, `sample` is `None` and safe reason codes are recorded.
+See [ADR 0014](docs/adr/0014-leakage-validation.md).

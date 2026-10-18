@@ -1,5 +1,14 @@
 """Public security and sanitization contract API."""
 
+from automatic_dataset_generation.security.leakage import (
+    LeakageValidationConfig,
+    LeakageValidationError,
+    LeakageValidationOutcome,
+    LeakageValidationReport,
+    LeakageValidationResult,
+    LeakageValidator,
+    ValidatedSample,
+)
 from automatic_dataset_generation.security.models import (
     FieldClassification,
     FieldReference,
@@ -39,6 +48,12 @@ from automatic_dataset_generation.security.transforms import (
 __all__ = [
     "FieldClassification",
     "FieldReference",
+    "LeakageValidationConfig",
+    "LeakageValidationError",
+    "LeakageValidationOutcome",
+    "LeakageValidationReport",
+    "LeakageValidationResult",
+    "LeakageValidator",
     "PIIDetectionConfig",
     "PIIDetectionError",
     "PIIDetectionResult",
@@ -62,4 +77,5 @@ __all__ = [
     "SecretDetectionError",
     "SecretDetectionResult",
     "SensitivityClass",
+    "ValidatedSample",
 ]
