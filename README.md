@@ -5,7 +5,8 @@ databases. The pipeline is being built in deliberately bounded phases; this repo
 contains the Phase 1 foundation, Phase 2A/2B contracts, Phase 2C/2D/2E/2F/2G/2H adapters, the
 Phase 2I safe database MCP tool boundary, the Phase 3A sanitization contracts and policy, the
 Phase 3B secret and credential detector, the Phase 3C PII detector, the Phase 3D
-sanitization transforms, the Phase 3E sanitization orchestrator, and the Phase 3F leakage validator.
+sanitization transforms, the Phase 3E sanitization orchestrator, the Phase 3F leakage validator,
+and the Phase 4 agent orchestration layer.
 
 ## Current scope
 
@@ -42,8 +43,20 @@ Phase 3F adds the deterministic `LeakageValidator`, an independent security gate
 sanitized samples for residual sensitive substrings (emails, phones, Luhn-valid cards, mod-97 IBANs,
 SSNs, credentials, JWTs, connection strings with passwords), verifies structural boundaries and
 resource budgets, revalidates report consistency, and emits an immutable `ValidatedSample` and
-`LeakageValidationReport`. Agent or LiteLLM integration, dataset
-planning/generation/validation/publishing logic, CI, and containers remain unimplemented.
+`LeakageValidationReport`. Phase 4 implements the agent orchestration layer under
+`automatic_dataset_generation.orchestration`: a bounded, secure, testable PydanticAI
+database-understanding agent connected via an OpenAI-compatible LiteLLM gateway for Qwen. It enforces
+deterministic tool registration (`ALLOWED_AGENT_TOOLS`), strict dependency injection, gateway endpoint
+host allowlisting, safe secret handling via `SecretStr`, execution timeouts, and resource budgets
+(request limits, tool call limits, character budgets). It establishes a restricted read-only capability
+facade (`SecureDatabaseTools`) that isolates raw database adapter access, redacts sensitive database
+metadata, and detaches exception chains. Crucially, raw FastMCP sampling is never exposed to the agent;
+row sampling strictly enforces a 7-step pipeline (Model Request -> Facade Validation -> Adapter Sampling ->
+Phase 3E Sanitization -> Phase 3F Leakage Validation -> Final LLM Boundary Revalidation -> Safe Response).
+At the final prompt-construction boundary, `final_revalidate_sample` independently verifies structural
+integrity, scalar typing, identifier safety, and residual secret leakage prior to LLM response
+formulation. Dataset planning (Phase 5), generation, validation, publishing, CI, and containers
+remain unimplemented.
 
 The architecture uses a `src` layout and keeps domain/application behavior independent from
 transport and infrastructure concerns. Future MCP handlers will translate requests and responses
@@ -60,11 +73,11 @@ src/automatic_dataset_generation/
 ├── database/       # Connection parsing, metadata contracts, and adapter selection
 ├── mcp/            # Safe FastMCP database tool boundary (Phase 2I)
 ├── security/       # Sanitization contracts/policy (3A), secret/credential (3B), PII (3C), transforms (3D), orchestrator (3E), leakage validator (3F)
-├── planning/       # Future dataset planning
+├── orchestration/  # Agent orchestration layer, LiteLLM/Qwen gateway, secure tools (Phase 4)
+├── planning/       # Future dataset planning (Phase 5)
 ├── generation/     # Future dataset generation
 ├── validation/     # Future dataset validation
-├── publishing/     # Future registry abstraction and publishers
-└── orchestration/  # Future use-case coordination
+└── publishing/     # Future registry abstraction and publishers
 ```
 
 These concise names avoid repeating `dataset` inside a package already dedicated to dataset
@@ -120,8 +133,20 @@ Current variables:
 | --- | --- | --- |
 | `ADGP_ENVIRONMENT` | `development` | Runtime environment (`development`, `test`, `staging`, `production`) |
 | `ADGP_LOG_LEVEL` | `INFO` | Application logging threshold |
-| `ADGP_DATABASE_CONNECTION_STRING` | unset | Secret database connection string reserved for later phases |
-| `ADGP_GATEWAY_API_KEY` | unset | Secret gateway credential reserved for later phases |
+| `ADGP_DATABASE_CONNECTION_STRING` | unset | Secret database connection string |
+| `ADGP_GATEWAY_API_KEY` | unset | Secret gateway credential for LiteLLM/Qwen |
+| `ADGP_GATEWAY_BASE_URL` | unset | Base URL of the OpenAI-compatible LiteLLM gateway |
+| `ADGP_GATEWAY_MODEL_ALIAS` | `qwen-2.5-72b-instruct` | Configured LiteLLM model alias |
+| `ADGP_GATEWAY_TIMEOUT_SECONDS` | `30.0` | Gateway request timeout in seconds |
+| `ADGP_GATEWAY_CONNECT_TIMEOUT_SECONDS` | `10.0` | Gateway connection establishment timeout in seconds |
+| `ADGP_GATEWAY_MAX_RETRIES` | `1` | Physical HTTP client retry count for transient transport failures |
+| `ADGP_GATEWAY_TRUSTED_HOSTS` | `["localhost", "127.0.0.1", "::1", "gateway.internal", "litellm.internal"]` | Explicitly approved gateway hostnames/IPs |
+| `ADGP_AGENT_REQUEST_LIMIT` | `15` | Maximum model interaction requests per run |
+| `ADGP_AGENT_TOOL_CALLS_LIMIT` | `30` | Maximum tool calls permitted per agent run |
+| `ADGP_AGENT_MAX_RESULT_SIZE` | `50000` | Maximum characters permitted in model-visible tool responses |
+| `ADGP_AGENT_TOTAL_TOKENS_LIMIT` | `100000` | Maximum cumulative total tokens per agent run |
+| `ADGP_AGENT_OUTPUT_TOKENS_LIMIT` | `16384` | Maximum cumulative output tokens per agent run |
+| `ADGP_AGENT_PARALLEL_TOOL_CALLS` | `false` | Whether parallel tool calls are enabled for model requests |
 
 Generated datasets and run artifacts belong under the ignored `data/`, `artifacts/`, or `runs/`
 directories. Files under `tests/fixtures/` may be committed when useful, but they must contain only
@@ -344,3 +369,40 @@ against caller mutation or pipeline miswiring; hostile in-process Python executi
 boundary, and Phase 4 must revalidate contracts at the prompt-construction boundary immediately before LLM
 consumption. Failure is atomic: if any issue is detected, `sample` is `None` and safe reason codes are recorded.
 See [ADR 0014](docs/adr/0014-leakage-validation.md).
+
+## Agent Orchestration
+
+Phase 4 adds the agent orchestration layer under `automatic_dataset_generation.orchestration`.
+It builds a secure, bounded, testable PydanticAI agent communicating with an OpenAI-compatible LiteLLM
+gateway for Qwen.
+
+The agent's capabilities and boundaries follow strict invariants:
+- **Exact Tool Allowlist:** The agent registers only seven approved read-only tools: `get_database_metadata`,
+  `list_schemas`, `list_tables`, `describe_table`, `get_relationships`, `get_row_count`, and
+  `sample_validated_rows`. Arbitrary SQL, filesystem access, write operations, and dynamic tool discovery
+  are strictly prohibited.
+- **Strict Separation from Raw FastMCP:** The raw Phase 2I `sample_rows` tool is never exposed to the agent.
+  All sampling requests go through `SecureDatabaseTools`, which delegates to the adapter, invokes
+  `SanitizationOrchestrator` (Phase 3E), executes `LeakageValidator` (Phase 3F), and revalidates via
+  `final_revalidate_sample` before returning `SafeSampleResponse`. If any stage fails, a safe failure is
+  returned; raw data never leaks.
+- **Mandatory Final LLM Security Boundary:** Following ADR 0014, `final_revalidate_sample` inspects the
+  payload immediately prior to LLM prompt serialization. It does not trust `isinstance` alone, verifies
+  identifier integrity, scalar types, and scans for residual secrets (passwords, connection strings, auth
+  headers, JWTs, PEM keys, credit cards, IBANs, SSNs, emails) and evasion attempts (zero-width chars,
+  percent-encoding).
+- **Metadata Protection:** Database metadata (server version, table/column names) is treated as untrusted data
+  and validated via `is_safe_metadata_identifier` and `is_safe_metadata_text`. Metadata with embedded secrets
+  is redacted or omitted.
+- **Detached Exception Chains:** Underlying database adapter errors are caught and re-raised as low-information
+  `ToolError` instances with `__context__ = None` and `__cause__ = None` to prevent leaking connection strings
+  or credentials in exception traces.
+- **Bounded Resource Budgets:** The execution service (`DatabaseAgentService`) enforces request timeouts
+  (`asyncio.timeout`), request limits, tool-call limits, and character output budgets. Tracing of request and
+  response bodies is disabled by default.
+- **Gateway Host Allowlisting:** The LiteLLM endpoint base URL is strictly validated against
+  `gateway_trusted_hosts` (defaulting to local loopback hosts). Credentials are encapsulated in `SecretStr`.
+- **Zero Import Activity:** Importing orchestration modules and instantiating agents triggers no network or
+  database activity.
+
+See [ADR 0015](docs/adr/0015-agent-orchestration.md).
